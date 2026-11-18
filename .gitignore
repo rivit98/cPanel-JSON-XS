@@ -1,0 +1,3 @@
+# builds, perl-msan and the downloaded release tarballs (src/fuzz/upstream.cmake)
+/fuzzer/build/
+/lcov.info
