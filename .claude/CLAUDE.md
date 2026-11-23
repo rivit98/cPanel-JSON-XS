@@ -5,9 +5,9 @@ This is the Cpanel-JSON-XS CPAN release with an AFL++ campaign on top:
 the harness is `src/fuzz/` - `main.c` (C test cases, groups, the builder),
 `fuzz_perl.h` (embedded perl), `fixture.pl` (the perl half). No file of the
 library is in the repository: the build downloads the CPAN release
-(`Cpanel-JSON-XS-4.81.tar.gz`, version and SHA-256 pinned in
+(`Cpanel-JSON-XS-4.83.tar.gz`, version and SHA-256 pinned in
 `src/fuzz/CMakeLists.txt`) into `fuzzer/build/` and `src/fuzz/upstream.cmake`
-unpacks it, unpatched, into `fuzzer/build/<variant>/upstream/Cpanel-JSON-XS-4.81/`
+unpacks it, unpatched, into `fuzzer/build/<variant>/upstream/Cpanel-JSON-XS-4.83/`
 (that is where `XS.xs` is). Never add upstream files to the repository or patch
 the unpacked copy. The setup was ported from the JSON::XS campaign in
 `../JSON-XS-4.04`.

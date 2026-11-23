@@ -64,8 +64,6 @@ It contains exactly these parts and nothing else. No analysis, no suggested
 fix:
 
 ````markdown
-Hi, I found the following problem while fuzzing Cpanel::JSON::XS.
-
 ## Code version
 Cpanel-JSON-XS <version> (CPAN), perl <perl -v version>
 

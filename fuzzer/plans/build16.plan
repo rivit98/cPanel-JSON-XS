@@ -1,0 +1,42 @@
+# build16.plan - sixteen lanes for the build group (builder-VM programs).
+#
+#   FUZZ_GROUP=build TC=test_build FUZZ_PLAN=build16 ./fuzz run
+#
+# Approach
+#   The input is a binary program that builds a perl value (plus a type spec)
+#   for encode, so -a FMT expands to binary and no lane takes -x DICT
+#   (json.dict does not fit; the LTO autodictionary still picks up the opcode
+#   constants).
+#     - main, asan, lsan: sync hub and the two classifying sanitizers
+#     - cmplogat, cmplog2: opcode and operand-table compares, two RedQueen levels
+#     - lsan2: the encoder side has the deeper leak paths (TO_JSON, FREEZE,
+#       tied, blessed and overloaded values, type specs), so it gets a second
+#       leak lane on a different schedule
+#     - laf: ranked above the json plan's laf on the guess that opcode
+#       compares gain more from split compares; drop it if it finds little
+#     - the rest: one lane per power schedule / strategy, all with SAND oracles
+#
+# Order matters when JOBS < 16 (e.g. both campaigns on one 16-core host, JOBS=8
+# each - README.md, "Two campaigns on one host"): the first lanes are kept.
+#
+# What every flag and variable does: README.md, "Plan parameters".
+# Line format and tokens: lib/run.sh. Every lane but main also gets -S <name> -z.
+#
+# name       | variant | afl-fuzz args                                                         | env
+
+main         | fast    | -w ASAN_ORACLE -w MSAN_ORACLE                                         | AFL_FINAL_SYNC=1
+asan         | asan    | -P explore -t TIMEOUT_SAN                                             |
+lsan         | lsan    | -P explore -t TIMEOUT_SAN                                             |
+cmplogat     | fast    | -c CMPLOG -l 2AT -a FMT -w ASAN_ORACLE                                | AFL_CMPLOG_ONLY_NEW=1
+explore      | fast    | -p explore -P explore -a FMT -w ASAN_ORACLE -w MSAN_ORACLE            | AFL_DISABLE_TRIM=1
+exploit      | fast    | -p exploit -P exploit -Z -a FMT -w ASAN_ORACLE                        | AFL_DISABLE_TRIM=1
+lsan2        | lsan    | -p fast -P exploit -t TIMEOUT_SAN                                     |
+cmplog2      | fast    | -c CMPLOG -l 2 -w ASAN_ORACLE                                         | AFL_CMPLOG_ONLY_NEW=1
+asan2        | asan    | -p fast -P exploit -a FMT -t TIMEOUT_SAN                              |
+laf          | laf     | -a FMT -w ASAN_ORACLE                                                 |
+rare         | fast    | -p rare -a FMT -w ASAN_ORACLE                                         |
+mopt         | fast    | -L 0 -p coe -w ASAN_ORACLE -w MSAN_ORACLE                             |
+fast         | fast    | -p fast -P explore -a FMT -w ASAN_ORACLE                              | AFL_DISABLE_TRIM=1
+quad         | fast    | -p quad -P exploit -a FMT -w ASAN_ORACLE -w MSAN_ORACLE               | AFL_DISABLE_TRIM=1
+mmopt        | fast    | -p mmopt -w ASAN_ORACLE -w MSAN_ORACLE                                |
+lin          | fast    | -p lin -a FMT -w ASAN_ORACLE                                          |

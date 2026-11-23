@@ -5,6 +5,7 @@
 #   FUZZ_PLAN=32 ./fuzz run    # force a plan: plans/<name>.plan, or a path
 #   FUZZ_GROUP=json ./fuzz run # start from fuzzer/seeds/json (own state, session)
 #   TC=test_json ./fuzz run    # restrict every instance to one group or test case
+#   FUZZ_CORE_OFFSET=16 JOBS=16 ./fuzz run   # pin to physical cores 16..31
 #
 # FUZZ_GROUP and TC are independent; set both for a campaign on one group's
 # seeds and code: FUZZ_GROUP=json TC=test_json ./fuzz run
@@ -45,12 +46,13 @@ USAGE="usage: $PROG run   (no flags - every option is an environment variable)
 
   JOBS=<n>         instances, default one per physical core, capped at the
                    largest plan
-  FUZZ_PLAN=...    auto (default: the smallest plan with at least JOBS lanes),
-                   8, 16, 32, or a path to a plan file
+  FUZZ_PLAN=...    auto (default: the smallest of 8/16/32.plan with at least
+                   JOBS lanes), a plan name (8, 16, 32, json16, build16), or a
+                   path to a plan file
   FUZZ_GROUP=<g>   start from fuzzer/seeds/<g> and name the campaign after it;
                    unset: one empty seed, campaign 'all'
-  FUZZ_CORE_OFFSET=<n>  pin from the n-th physical core on (default 0), to
-                   run two campaigns side by side on disjoint cores
+  FUZZ_CORE_OFFSET=<n>  pin lane i to physical core n+i instead of i
+                   (default 0); for a second campaign on the same host
   TC=<name>        restrict every instance to one group function (test_json,
                    test_build) or one test case;
                    unset: every test case runs on every input
@@ -75,7 +77,7 @@ case "$FUZZ_PLAN" in
     while IFS= read -r f; do
       PLAN_FILE="$f"
       [ "$(plan_lines "$f" | wc -l)" -ge "$JOBS" ] && break
-    done < <(find "$PLAN_DIR" -maxdepth 1 -name '*.plan' 2>/dev/null | sort -V)
+    done < <(find "$PLAN_DIR" -maxdepth 1 -name '[0-9]*.plan' 2>/dev/null | sort -V)
     ;;
   */*) PLAN_FILE="$FUZZ_PLAN" ;;
   *)   PLAN_FILE="$PLAN_DIR/$FUZZ_PLAN.plan" ;;
@@ -112,16 +114,15 @@ if [ "$JOBS" -gt "${#PLAN[@]}" ]; then
 fi
 
 mapfile -t CORES < <(core_list)
-# FUZZ_CORE_OFFSET=<n>: start pinning at the n-th physical core, so two
-# campaigns (one per group) can run side by side on disjoint cores:
-#   FUZZ_GROUP=json  JOBS=4 ./fuzz run; FUZZ_GROUP=build JOBS=4 FUZZ_CORE_OFFSET=4 ./fuzz run
-CORE_OFFSET="${FUZZ_CORE_OFFSET:-0}"
-[[ "$CORE_OFFSET" =~ ^[0-9]+$ ]] || die "FUZZ_CORE_OFFSET must be a number, not '$CORE_OFFSET'"
-if [ "$CORE_OFFSET" -gt 0 ]; then
-  CORES=("${CORES[@]:$((CORE_OFFSET % ${#CORES[@]}))}" "${CORES[@]:0:$((CORE_OFFSET % ${#CORES[@]}))}")
-fi
-[ "$((JOBS + CORE_OFFSET))" -gt "${#CORES[@]}" ] && \
-  log_warn "JOBS=$JOBS on ${#CORES[@]} physical cores - instances will share cores"
+# FUZZ_CORE_OFFSET skips the first n physical cores, so two campaigns can share
+# a host on disjoint cores (README.md, "Two campaigns on one host").
+FUZZ_CORE_OFFSET="${FUZZ_CORE_OFFSET:-0}"
+[[ "$FUZZ_CORE_OFFSET" =~ ^[0-9]+$ ]] || die "FUZZ_CORE_OFFSET=$FUZZ_CORE_OFFSET: not a number"
+[ "$FUZZ_CORE_OFFSET" -lt "${#CORES[@]}" ] || \
+  die "FUZZ_CORE_OFFSET=$FUZZ_CORE_OFFSET: only ${#CORES[@]} physical cores (0..$((${#CORES[@]} - 1)))"
+CORES=("${CORES[@]:FUZZ_CORE_OFFSET}")
+[ "$JOBS" -gt "${#CORES[@]}" ] && \
+  log_warn "JOBS=$JOBS on ${#CORES[@]} physical cores (from offset $FUZZ_CORE_OFFSET) - instances will share cores"
 
 instance_cmd() { # <plan index> -> the full host-side command for that tab
   local idx="$1" entry name variant args extra binpath core role extra_env

@@ -115,6 +115,8 @@ BIN_REPRO_MSAN="$(bin_of repro-msan)" # the RR/RF reproducer, msan, no engine
 
 # -G: max input length.
 FUZZ_MAX_LEN="${FUZZ_MAX_LEN:-4000}"
+# afl-cmin -T: parallel showmap workers for seeds/cmin (all = one per CPU).
+FUZZ_CMIN_THREADS="${FUZZ_CMIN_THREADS:-all}"
 TIMEOUT_FAST="${TIMEOUT_FAST:-2000}"
 TIMEOUT_SAN="${TIMEOUT_SAN:-5000}"
 TIMEOUT_MSAN="${TIMEOUT_MSAN:-10000}"

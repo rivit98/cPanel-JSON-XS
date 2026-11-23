@@ -75,10 +75,12 @@ They are libfyaml's, unchanged in behaviour:
 | `FUZZ_GROUP` | seeds to start from, `fuzzer/seeds/<group>` (`json`, `build`), and the campaign's name. Unset: one empty seed, campaign `all` |
 | `TC` | restrict every instance to one group function (`test_json`, `test_build`) or one test case. Unset: every test case |
 | `JOBS` | instances (default: one per physical core) |
-| `FUZZ_PLAN` | `auto` (default), `8`, `16`, `32`, or a path |
+| `FUZZ_PLAN` | `auto` (default: picks among `8`/`16`/`32`), a plan name (`8`, `16`, `32`, `json16`, `build16`), or a path |
+| `FUZZ_CORE_OFFSET` | `run`: skip the first n physical cores, so lane i is pinned to physical core n+i (default 0) — see [Two campaigns on one host](#two-campaigns-on-one-host) |
 | `FUZZ_DIR` | campaign state root (default `../fuzz/Cpanel-JSON-XS`) |
 | `FUZZ_CC_MODE` | `lto` or `fast`, forcing afl-cc's instrumentation mode |
 | `FUZZ_MAX_LEN` | `-G`, max input length (default 4000) |
+| `FUZZ_CMIN_THREADS` | `afl-cmin -T` for `seeds` and `cmin` (default `all`; set it, e.g. `16`, while another campaign runs) |
 | `FUZZ_BUILD_JOBS` | parallel compile jobs of `build` (default `nproc`) |
 | `FUZZ_SV_LEAK_CHECK` | `1`/`0`: force the SV leak check on or off in any binary (on by default only in `lsan`) |
 | `VERBOSE` | harness: print the decoded flags, each test case and its timing |
@@ -89,7 +91,7 @@ They are libfyaml's, unchanged in behaviour:
 fuzz               the entry point: ./fuzz <command> [options]
 fuzzer/
 ├── seeds/         the seed corpora, one directory per group (checked in)
-├── plans/         instance plans: 8.plan, 16.plan, 32.plan
+├── plans/         instance plans: 8/16/32.plan (generic), json16.plan, build16.plan
 ├── build/         every build variant, perl-msan and the downloaded tarballs (generated)
 └── lib/           one file per command, common.sh sourced first
 src/fuzz/
@@ -115,10 +117,10 @@ return perl scalars. The harness therefore embeds a perl interpreter.
 
 * **The module is fetched, not vendored.** No file of Cpanel::JSON::XS is in
   this repository. Configuring a build downloads the CPAN release
-  (`Cpanel-JSON-XS-4.81.tar.gz`, pinned by version and SHA-256 in
+  (`Cpanel-JSON-XS-4.83.tar.gz`, pinned by version and SHA-256 in
   `src/fuzz/CMakeLists.txt`) into `fuzzer/build/` once, and
   `src/fuzz/upstream.cmake` unpacks it, unpatched, into each variant's
-  `fuzzer/build/<variant>/upstream/Cpanel-JSON-XS-4.81/` - the `XS.xs`
+  `fuzzer/build/<variant>/upstream/Cpanel-JSON-XS-4.83/` - the `XS.xs`
   sanitizer frames point at. A missing file there is unpacked again by the
   next `cmake --build`. To build offline, put the tarball in `fuzzer/build/`
   first; to fuzz another release, change `FUZZ_UPSTREAM_VERSION`,
@@ -276,6 +278,48 @@ oracles, `lsan` from 16 lanes up. `FUZZ_PLAN=auto` takes the smallest plan
 with at least `JOBS` lanes and runs its first `JOBS` lanes, so `JOBS=2` is
 `main` + `asan`. `-a FMT` is `text`, or `binary` with `FUZZ_GROUP=build`.
 
+`plans/json16.plan` and `plans/build16.plan` are this project's own plans,
+one per seed group; the file comments say why each lane is there. The number
+in the name is the lane count. `auto` never picks them: name them with
+`FUZZ_PLAN`.
+
+| | json16 | build16 |
+|---|---|---|
+| input | JSON text, `-a text`, `-x DICT` | builder programs, `-a binary`, no dictionary |
+| sanitizer lanes | asan, asan2, lsan | asan, asan2, lsan, lsan2 |
+| comparison solving | cmplogat, cmplog2, laf (last to cut) | cmplogat, cmplog2, laf |
+| specific | `incr`: `TC=test_incr` only (incremental parser) | — |
+| native | explore, exploit, nodict, rare, mopt, quad, mmopt, seek | explore, exploit, fast, rare, mopt, quad, mmopt, lin |
+
+### Two campaigns on one host
+
+Each campaign pins lane i to physical core i, so a second campaign started
+the plain way would land on the first one's cores. `FUZZ_CORE_OFFSET=n`
+shifts a campaign to physical cores n, n+1, …; with `JOBS` it gives each
+campaign a disjoint block. Both groups, full plans, on 32 physical cores:
+
+```sh
+FUZZ_GROUP=json  TC=test_json  FUZZ_PLAN=json16  JOBS=16                      ./fuzz run
+FUZZ_GROUP=build TC=test_build FUZZ_PLAN=build16 JOBS=16 FUZZ_CORE_OFFSET=16  ./fuzz run
+```
+
+* On a smaller host take the first lanes of each plan, which is why the
+  plans are ordered by what to keep: 16 cores → `JOBS=8` and
+  `JOBS=8 FUZZ_CORE_OFFSET=8`; uneven splits work the same way
+  (`JOBS=10`, `JOBS=6 FUZZ_CORE_OFFSET=10`).
+* `JOBS` + `FUZZ_CORE_OFFSET` must not exceed the physical core count, or
+  lanes wrap around and share cores (`run` warns). The offset counts
+  *physical* cores (`lscpu -p=CPU,CORE`, one CPU per core), not CPU ids — on an
+  SMT host offset 16 is not CPU 16.
+* Everything else is already separate per `FUZZ_GROUP`: state directory, tmux
+  session and container names. Every other command takes the same
+  `FUZZ_GROUP` to address one campaign: `FUZZ_GROUP=build ./fuzz status`,
+  `FUZZ_GROUP=build ./fuzz stop`, `FUZZ_GROUP=build ./fuzz cmin`. With the
+  other campaign still running, give `cmin`/`seeds` `FUZZ_CMIN_THREADS`
+  so `afl-cmin` does not take every CPU.
+* The offset only matters to `run`; restarting a campaign needs the same
+  `JOBS` and `FUZZ_CORE_OFFSET` again.
+
 ## Notes / gotchas
 
 * **Seed shape.** Bytes 0..3 are the flag seed; a seed must be ≥ 5 bytes.
@@ -318,5 +362,8 @@ with at least `JOBS` lanes and runs its first `JOBS` lanes, so `JOBS=2` is
   bignum hangs, decode leaks) are all fixed in 4.82; the reports as sent are
   archived in `reports/cpanel-jsonxs-4.81-reports/`. The 4.81 `incr_parse`
   crashes looked like JSON::XS 4.04's reports 1/3/5 but were not the same
-  roots - those reproducers are clean on 4.81.
+  roots - those reproducers are clean on 4.81. The six 4.82 findings (BOM,
+  allow_tags, filter-callback and allow_stringify leaks, `IV_MIN` negation,
+  MSAN inf/nan check) are all fixed in 4.83 (CVE-2026-134876..134879); the
+  reports as sent are archived in `reports/cpanel-jsonxs-4.82-reports/`.
 * **Crash inputs are never minimized**, as with libfyaml.

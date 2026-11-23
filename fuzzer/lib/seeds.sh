@@ -68,7 +68,7 @@ cmin_into() { # cmin_into <group> <dir>
   rm -rf "$tmp"
   # TC reaches the backend only when set: afl_run strips an inherited one.
   afl_run -n "$CONTAINER_PREFIX-cmin-$group" $(env_args "${AFL_ENV[@]}" ${TC:+"TC=$TC"}) -- \
-    "afl-cmin -T all -i $(cpath "$dir") -o $(cpath "$tmp") -m none -t $TIMEOUT_FAST -- $B_BIN_FAST @@" >/dev/null
+    "afl-cmin -T $FUZZ_CMIN_THREADS -i $(cpath "$dir") -o $(cpath "$tmp") -m none -t $TIMEOUT_FAST -- $B_BIN_FAST @@" >/dev/null
 
   if [ -n "$(ls -A "$tmp" 2>/dev/null)" ]; then
     rm -rf "${dir:?}"; mv "$tmp" "$dir"

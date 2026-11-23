@@ -104,8 +104,8 @@ separate_arguments(PERL_LIBS_LIST UNIX_COMMAND "${PERL_LIBS}")
 # at build time if any file it produces has gone missing. Bumping the release
 # means changing all three FUZZ_UPSTREAM_* values (or -D them), then
 # reconfiguring.
-set(FUZZ_UPSTREAM_VERSION "4.82" CACHE STRING "Cpanel-JSON-XS release under test")
-set(FUZZ_UPSTREAM_SHA256 "ff84f5ef1d168e9dfdd4a164ed08a6a5b3bf2de57a63101cfdeb6173e22302dc"
+set(FUZZ_UPSTREAM_VERSION "4.83" CACHE STRING "Cpanel-JSON-XS release under test")
+set(FUZZ_UPSTREAM_SHA256 "daabf6ad0376ee4613e671c521f5d05650c42205e403cac077e79d8594da3ade"
     CACHE STRING "SHA-256 of Cpanel-JSON-XS-<FUZZ_UPSTREAM_VERSION>.tar.gz")
 set(FUZZ_UPSTREAM_URL
     "https://cpan.metacpan.org/authors/id/R/RU/RURBAN/Cpanel-JSON-XS-${FUZZ_UPSTREAM_VERSION}.tar.gz"

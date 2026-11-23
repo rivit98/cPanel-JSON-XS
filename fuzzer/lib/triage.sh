@@ -86,7 +86,7 @@ artifact="$1"
 # signal handlers owned by the sanitizer rather than by AFL.
 triage_env_for() {
   case "$1" in
-    msan) echo "MSAN_OPTIONS=abort_on_error=1:symbolize=1:halt_on_error=1:print_stats=0" ;;
+    *msan) echo "MSAN_OPTIONS=abort_on_error=1:symbolize=1:halt_on_error=1:print_stats=0" ;;
     lsan) echo "LSAN_OPTIONS=detect_leaks=1:symbolize=1:malloc_context_size=30" ;;
     # detect_leaks=1: ASAN carries LeakSanitizer, and a replay is one input in
     # a process that exits right after it, so the at-exit leak check is exact

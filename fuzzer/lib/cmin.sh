@@ -48,7 +48,7 @@ log "$n queue entries collected"
 # instead of ~3200, and the corpus "minimizes" down to one file.
 # TC, when set, keeps the minimization on the test cases the campaign fuzzed.
 afl_run -n "$CONTAINER_PREFIX-cmin" $(env_args "${AFL_ENV[@]}" ${TC:+"TC=$TC"}) -- \
-  "afl-cmin -T all -i $(cpath "$ALL") -o $B_CMIN_DIR -m none -t $TIMEOUT_FAST -- $B_BIN_FAST @@"
+  "afl-cmin -T $FUZZ_CMIN_THREADS -i $(cpath "$ALL") -o $B_CMIN_DIR -m none -t $TIMEOUT_FAST -- $B_BIN_FAST @@"
 
 if [ "$TMIN" = 1 ]; then
   log "afl-tmin pass"

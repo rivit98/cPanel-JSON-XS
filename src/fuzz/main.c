@@ -654,56 +654,6 @@ int CONCAT(tc, nr)(void) { \
 
 /* ── RA()/RF() pairs, one per reportN.md (see .claude/CLAUDE.md) ───────────── */
 
-/* report10.md */
-RA(10, "/home/rivit/workspace/fuzzing/projects/Cpanel-JSON-XS-4.81/reports/artifacts/root10.bin")
-/* SV leak (FUZZ_SV_LEAK_CHECK=1): allow_stringify encode of [\"\x{1df604}"] croaks and leaks 1 SV */
-// file report10.md as a GitHub issue (see report-template.md)
-// title: "encode: allow_stringify leaks memory when encoding a scalar ref croaks"
-RF(10,
-test_encode,
-(&(struct flags_t){
-  .dec = { .options = 0x39f70a /* latin1 | utf8 | allow_nonref | shrink | allow_blessed | relaxed | allow_unknown | allow_tags | allow_barekey | allow_singlequote | allow_stringify | unblessed_bool | allow_dupkeys */, .max_depth = 0x0, .max_size = 0, .filter_object = 0, .filter_sk_keys = 0x0, .filter_sk_cb = 2, .sort_by = 0, .indent_length = 7, .infnan = 0, .pretty = 0, .nonref_set = 0, .subclass = 0 },
-  .enc = { .options = 0x16241cc /* binary | utf8 | space_before | space_after | allow_nonref | allow_tags | allow_bignum | allow_dupkeys | require_types | dupkeys_as_arrayref */, .max_depth = 0x8, .max_size = 0, .filter_object = 4, .filter_sk_keys = 0x0, .filter_sk_cb = 1, .sort_by = 0, .indent_length = 2, .infnan = 0, .pretty = 0, .nonref_set = 1, .subclass = 0 },
-  .input_kind = 5 /* number then string */,
-  .aux = 0x278f4042a28f8dbaull
-}),
-"\x08\x08\xe2\x98\xba\x20\xf7\x9f\x98\x84\x31\x65\xff\x7f\x15\x01\x7a\x1f\x04\x10\x12\x00\x01",
-23
-)
-
-/* not reported: string "-9223372036854775808" forced to JSON_TYPE_INT - garbage in, garbage out */
-RA(13, "/home/rivit/workspace/fuzzing/projects/Cpanel-JSON-XS-4.81/reports/artifacts/root13.bin")
-/* UBSAN: negation of IV_MIN XS.xs:2985 (4.82) in encode_sv (string "-9223372036854775808" under JSON_TYPE_INT) */
-RF(13,
-test_encode,
-(&(struct flags_t){
-  .dec = { .options = 0x1374faf /* ascii | latin1 | binary | utf8 | canonical | space_after | allow_nonref | shrink | allow_blessed | convert_blessed | allow_tags | allow_singlequote | allow_bignum | escape_slash | unblessed_bool | allow_dupkeys | dupkeys_as_arrayref */, .max_depth = 0x3, .max_size = 0, .filter_object = 0, .filter_sk_keys = 0x0, .filter_sk_cb = 1, .sort_by = 0, .indent_length = 6, .infnan = 5, .pretty = 0, .nonref_set = 0, .subclass = 1 },
-  .enc = { .options = 0x127b3ea /* latin1 | utf8 | canonical | space_before | space_after | allow_nonref | shrink | relaxed | allow_unknown | allow_barekey | allow_singlequote | allow_bignum | escape_slash | allow_dupkeys | dupkeys_as_arrayref */, .max_depth = 0x0, .max_size = 0, .filter_object = 5, .filter_sk_keys = 0x1d, .filter_sk_cb = 4, .sort_by = 2, .indent_length = 0, .infnan = 4, .pretty = 0, .nonref_set = 0, .subclass = 0 },
-  .input_kind = 4 /* shared hash key */,
-  .aux = 0xec8546597b1a1b0eull
-}),
-"\x9c\xdb\x6b\xeb\x2d\x39\x32\x32\x33\x33\x37\x32\x30\x33\x36\x38\x35\x34\x37\x37\x35\x38\x30\x38",
-24
-)
-
-/* report14.md */
-RA(14, "/home/rivit/workspace/fuzzing/projects/Cpanel-JSON-XS-4.81/reports/artifacts/root14.bin")
-/* SV leak (FUZZ_SV_LEAK_CHECK=1): decode with allow_singlequote (every key on the slow path) and a
- * filter_json_object that dies inside an object value leaks the key SV of each enclosing object */
-// file report14.md as a GitHub issue (see report-template.md)
-// title: "decode: hash key leaks when a filter callback dies while decoding its value"
-RF(14,
-test_encode,
-(&(struct flags_t){
-  .dec = { .options = 0x1130d7f /* ascii | latin1 | binary | utf8 | indent | canonical | space_before | allow_nonref | allow_blessed | convert_blessed | allow_singlequote | allow_bignum | unblessed_bool | dupkeys_as_arrayref */, .max_depth = 0x0, .max_size = 0, .filter_object = 5, .filter_sk_keys = 0x0, .filter_sk_cb = 0, .sort_by = 0, .indent_length = 0, .infnan = 0, .pretty = 0, .nonref_set = 0, .subclass = 0 },
-  .enc = { .options = 0x127a5af /* ascii | latin1 | binary | utf8 | canonical | space_after | allow_nonref | allow_blessed | allow_unknown | allow_barekey | allow_singlequote | allow_bignum | escape_slash | allow_dupkeys | dupkeys_as_arrayref */, .max_depth = 0x20, .max_size = 0, .filter_object = 2, .filter_sk_keys = 0x0, .filter_sk_cb = 3, .sort_by = 0, .indent_length = 0, .infnan = 0, .pretty = 1, .nonref_set = 0, .subclass = 0 },
-  .input_kind = 5 /* number then string */,
-  .aux = 0xe80e26c1a744f07bull
-}),
-"\xf8\x96\x96\x80\x00",
-5
-)
-
 int main(int argc, char **argv) {
   return fuzz_replay_main(argc, argv);
 }

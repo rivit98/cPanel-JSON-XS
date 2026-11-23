@@ -1,0 +1,46 @@
+# json16.plan - sixteen lanes for the json group (JSON text inputs).
+#
+#   FUZZ_GROUP=json TC=test_json FUZZ_PLAN=json16 ./fuzz run
+#
+# Approach
+#   test_json runs decode, decode_prefix, incr_parse and the functional
+#   interface on every input - the ways untrusted text gets into
+#   Cpanel::JSON::XS - so this plan has no build-group lanes and every lane
+#   uses -x DICT except the two that deliberately do without it.
+#     - main, asan, lsan: sync hub and the two classifying sanitizers; lsan is
+#       in the first three lanes because reference leaks on error paths were
+#       the bulk of the JSON::XS 4.05/4.06 fixes, and this decoder is a fork
+#       of that one
+#     - cmplogat, cmplog2: the 4-byte flag seed and option compares; two
+#       RedQueen levels so the lanes make different guesses
+#     - incr: TC=test_incr only - the incremental parser's chunk-boundary paths
+#       get the execs of a whole lane instead of a quarter of each; its queue
+#       syncs fine (same input format)
+#     - laf: split compares; the JSON parser branches mostly on single bytes,
+#       so it is the first lane to cut
+#     - the rest: one lane per power schedule / strategy, all with SAND oracles
+#
+# Order matters when JOBS < 16 (e.g. both campaigns on one 16-core host, JOBS=8
+# each - README.md, "Two campaigns on one host"): the first lanes are kept.
+#
+# What every flag and variable does: README.md, "Plan parameters".
+# Line format and tokens: lib/run.sh. Every lane but main also gets -S <name> -z.
+#
+# name       | variant | afl-fuzz args                                                         | env
+
+main         | fast    | -x DICT -w ASAN_ORACLE -w MSAN_ORACLE                                 | AFL_FINAL_SYNC=1
+asan         | asan    | -P explore -x DICT -t TIMEOUT_SAN                                     |
+lsan         | lsan    | -P explore -x DICT -t TIMEOUT_SAN                                     |
+cmplogat     | fast    | -c CMPLOG -l 2AT -x DICT -a FMT -w ASAN_ORACLE                        | AFL_CMPLOG_ONLY_NEW=1
+incr         | fast    | -p explore -x DICT -a FMT -w ASAN_ORACLE -w MSAN_ORACLE               | TC=test_incr AFL_DISABLE_TRIM=1
+explore      | fast    | -p explore -P explore -x DICT -a FMT -w ASAN_ORACLE -w MSAN_ORACLE    | AFL_DISABLE_TRIM=1
+exploit      | fast    | -p exploit -P exploit -Z -x DICT -a FMT -w ASAN_ORACLE                | AFL_DISABLE_TRIM=1
+cmplog2      | fast    | -c CMPLOG -l 2 -x DICT -w ASAN_ORACLE                                 | AFL_CMPLOG_ONLY_NEW=1
+nodict       | fast    | -p fast -P explore -a FMT -w ASAN_ORACLE                              | AFL_DISABLE_TRIM=1
+asan2        | asan    | -p fast -P exploit -x DICT -a FMT -t TIMEOUT_SAN                      |
+rare         | fast    | -p rare -x DICT -a FMT -w ASAN_ORACLE                                 |
+mopt         | fast    | -L 0 -p coe -x DICT -w ASAN_ORACLE -w MSAN_ORACLE                     |
+laf          | laf     | -x DICT -a FMT -w ASAN_ORACLE                                         |
+quad         | fast    | -p quad -P exploit -x DICT -a FMT -w ASAN_ORACLE -w MSAN_ORACLE       | AFL_DISABLE_TRIM=1
+mmopt        | fast    | -p mmopt -x DICT -w ASAN_ORACLE -w MSAN_ORACLE                        |
+seek         | fast    | -p seek -a FMT -w ASAN_ORACLE                                         | AFL_DISABLE_TRIM=1
